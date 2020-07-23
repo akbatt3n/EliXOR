@@ -77,8 +77,8 @@ float effCtrlVal = 0;
 float prevVal = 0;
 int currentEffect = 0;
 
-Bounce effBtn = Bounce(BTN1, 15);
-Bounce volBtn = Bounce(BTN2, 15);
+Bounce effBtn = Bounce(BTN1, 20);
+Bounce volBtn = Bounce(BTN2, 20);
 
 elapsedMillis updateTimer;
 
@@ -125,16 +125,19 @@ void loop() {
     if (volBtn.fallingEdge()) {
         currentEffect = (currentEffect + 1) % 3;
         displayStatus(currentEffect);
+        updateMixer(currentEffect);
     }
 
-    // updateMixer() also controls volume for line out
-    updateMixer(currentEffect);
 
     // only update effect parameters every 250ms
     if (updateTimer > 250) {
+        
+        // updateMixer() also controls volume for line out
+        updateMixer(currentEffect);
+
         switch (currentEffect) {
             case 0:
-                adjustFuzz(effCtrlVal,fuzzArray, refPassthrough, refMaxFuzz);
+                adjustFuzz(effCtrlVal, fuzzArray, refPassthrough, refMaxFuzz, prevVal);
                 break;
             case 1:
                 adjustBitcrusher(effCtrlVal, prevVal);
@@ -147,9 +150,8 @@ void loop() {
         }
     }
     else updateTimer = 0;
-    // delay(200);
 
     #ifdef _DEBUG_
-        printDebugInfo(effCtrlVal, fuzzArray);
+        printDebugInfo(fuzzArray);
     #endif
 }

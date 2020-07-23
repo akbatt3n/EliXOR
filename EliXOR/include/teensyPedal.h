@@ -2,18 +2,21 @@
 #include <Audio.h>
 
 #ifdef _DEBUG_
-void printDebugInfo(int effCtrlVal, float fuzzArray[]) {
+void printDebugInfo(float fuzzArray[]) {
 
-    Serial.print("Effect Knob: ");
-    Serial.print(effCtrlVal);
+    Serial.print("Volume Knob: ");
+    Serial.print(analogRead(VOL_PIN));
 
-    Serial.print(" || Input Peak: ");
-    if (peak1.available()) Serial.print(peak1.read());
-    else Serial.print("(not available)");
+    Serial.print(" || Effect Knob: ");
+    Serial.print(analogRead(EFF_PIN));
 
-    Serial.print(" || Waveshape Peak: ");
-    if (peak2.available()) Serial.print(peak2.read());
-    else Serial.print("(not available)");
+    // Serial.print(" || Input Peak: ");
+    // if (peak1.available()) Serial.print(peak1.read());
+    // else Serial.print("(not available)");
+
+    // Serial.print(" || Waveshape Peak: ");
+    // if (peak2.available()) Serial.print(peak2.read());
+    // else Serial.print("(not available)");
 
     // Serial.println();
     // for (int i=0; i < LENGTH; i++) {
@@ -26,15 +29,18 @@ void printDebugInfo(int effCtrlVal, float fuzzArray[]) {
 }
 #endif
 
-void adjustFuzz(float effCtrlVal, float fuzzArray[], float refPassthrough[], float refMaxFuzz[]) {
+void adjustFuzz(float effCtrlVal, float fuzzArray[], float refPassthrough[], float refMaxFuzz[], float &prevVal) {
     effCtrlVal = analogRead(EFF_PIN);
-    for (int i=0; i < LENGTH; i++) {
-        fuzzArray[i] = map(effCtrlVal, 0, 1023, refMaxFuzz[i], refPassthrough[i]);
+    if (effCtrlVal > prevVal+20 || effCtrlVal < prevVal-20) {
+        prevVal = effCtrlVal;
+        for (int i=0; i < LENGTH; i++) {
+            fuzzArray[i] = map(effCtrlVal, 0, 1023, refMaxFuzz[i], refPassthrough[i]);
+        }
+        waveshape.shape(fuzzArray, LENGTH);
     }
-    waveshape.shape(fuzzArray, LENGTH);
 }
 
-void adjustBitcrusher(float effCtrlVal, float prevVal) {
+void adjustBitcrusher(float effCtrlVal, float &prevVal) {
     effCtrlVal = analogRead(EFF_PIN);
     if (effCtrlVal > prevVal+20 || effCtrlVal < prevVal-20) {
         prevVal = effCtrlVal;
@@ -45,7 +51,7 @@ void adjustBitcrusher(float effCtrlVal, float prevVal) {
 
 void adjustReverb(float effCtrlVal) {
     effCtrlVal = analogRead(EFF_PIN);
-    float val = map(effCtrlVal, 1023, 0, 0.1, 1.0);
+    float val = map(effCtrlVal, 1023, 0, 0.05, 1.0);
     freeverb.roomsize(val);
     freeverb.damping(val);
 }
@@ -56,7 +62,7 @@ void adjustFlange() {
 
 void updateMixer(int currentEffect) {
     float vol = analogRead(VOL_PIN);
-    vol = map(vol, 1023, 0, 0.0, 1.0);
+    vol = map(vol, 1023, 0, 0.0, 0.95);
     
     mixer.gain(0, 0.0);
     mixer.gain(1, 0.0);
