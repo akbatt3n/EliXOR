@@ -2,7 +2,7 @@
 #include <Audio.h>
 
 #ifdef _DEBUG_
-void printDebugInfo(float fuzzArray[]) {
+void printDebugInfo() {
 
     Serial.print("Volume Knob: ");
     Serial.print(analogRead(VOL_PIN));
@@ -10,20 +10,8 @@ void printDebugInfo(float fuzzArray[]) {
     Serial.print(" || Effect Knob: ");
     Serial.print(analogRead(EFF_PIN));
 
-    // Serial.print(" || Input Peak: ");
-    // if (peak1.available()) Serial.print(peak1.read());
-    // else Serial.print("(not available)");
-
-    // Serial.print(" || Waveshape Peak: ");
-    // if (peak2.available()) Serial.print(peak2.read());
-    // else Serial.print("(not available)");
-
-    // Serial.println();
-    // for (int i=0; i < LENGTH; i++) {
-    //     Serial.print(fuzzArray[i]);
-    //     Serial.print(", ");
-    // }
-    // Serial.println();
+    Serial.print(" || Current Effect: ");
+    Serial.print(currentEffect);
 
     Serial.println();
 }
@@ -31,7 +19,7 @@ void printDebugInfo(float fuzzArray[]) {
 
 void adjustFuzz(float effCtrlVal, float fuzzArray[], float refPassthrough[], float refMaxFuzz[], float &prevVal) {
     effCtrlVal = analogRead(EFF_PIN);
-    if (effCtrlVal > prevVal+20 || effCtrlVal < prevVal-20) {
+    if (effCtrlVal > (prevVal + CHANGE_THRESHOLD) || effCtrlVal < (prevVal - CHANGE_THRESHOLD)) {
         prevVal = effCtrlVal;
         for (int i=0; i < LENGTH; i++) {
             fuzzArray[i] = map(effCtrlVal, 0, 1023, refMaxFuzz[i], refPassthrough[i]);
@@ -42,22 +30,30 @@ void adjustFuzz(float effCtrlVal, float fuzzArray[], float refPassthrough[], flo
 
 void adjustBitcrusher(float effCtrlVal, float &prevVal) {
     effCtrlVal = analogRead(EFF_PIN);
-    if (effCtrlVal > prevVal+20 || effCtrlVal < prevVal-20) {
+    if (effCtrlVal > (prevVal + CHANGE_THRESHOLD) || effCtrlVal < (prevVal - CHANGE_THRESHOLD)) {
         prevVal = effCtrlVal;
         int sampRate = map(effCtrlVal, 1023, 0, SAMP_RATE_HIGH, SAMP_RATE_LOW);
         bitcrusher.sampleRate(sampRate);
     }
 }
 
-void adjustReverb(float effCtrlVal) {
+void adjustReverb(float effCtrlVal, float &prevVal) {
     effCtrlVal = analogRead(EFF_PIN);
-    float val = map(effCtrlVal, 1023, 0, 0.05, 1.0);
-    freeverb.roomsize(val);
-    freeverb.damping(val);
+    if (effCtrlVal > (prevVal + CHANGE_THRESHOLD) || effCtrlVal < (prevVal - CHANGE_THRESHOLD)) {
+        prevVal = effCtrlVal;
+        float val = map(effCtrlVal, 1023, 0, 0.05, 1.0);
+        freeverb.roomsize(val);
+        freeverb.damping(val);
+    }
 }
 
-void adjustFlange() {
-    
+void adjustFlange(float flangeFreq, float effCtrlVal, float &prevVal) {
+    effCtrlVal = analogRead(EFF_PIN);
+    if (effCtrlVal > (prevVal + CHANGE_THRESHOLD) || effCtrlVal < (prevVal - CHANGE_THRESHOLD)) {
+        prevVal = effCtrlVal;
+        flangeFreq = map(effCtrlVal, 1023, 0, FLANGE_FREQ_MIN, FLANGE_FREQ_MAX);
+        flange.voices(flangeOffset, flangeDepth, flangeFreq);
+    }
 }
 
 void updateMixer(int currentEffect) {
@@ -69,6 +65,15 @@ void updateMixer(int currentEffect) {
     mixer.gain(2, 0.0);
     mixer.gain(3, 0.0);
     mixer.gain(currentEffect, vol);
+}
+
+void updateVolume(int currentEffect, float &prevVolume) {
+    float vol = analogRead(VOL_PIN);
+    if (vol > (prevVolume + CHANGE_THRESHOLD) || vol < (prevVolume - CHANGE_THRESHOLD)) {
+        prevVolume = vol;
+        vol = map(vol, 1023, 0, 0.0, 0.95);
+        mixer.gain(currentEffect, vol);
+    }
 }
 
 void displayStatus(int currentEffect) {
